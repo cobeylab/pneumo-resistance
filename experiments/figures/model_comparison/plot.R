@@ -21,6 +21,7 @@ MODELS <- list(
     list(label = 'Null', dirname = 'model0-null/cost_duration'),
     list(label = 'AAM', dirname = 'model1-aam/cost_duration'),
     list(label = 'AST', dirname = 'model2-ast/cost_duration'),
+    list(label = 'AAM+AST', dirname = 'model15-aam+ast/cost_duration'),
     list(label = 'PSI', dirname = 'model5-psi/cost_duration'),
 #    list(label = 'ct', dirname = 'model4-ct/cost_duration'),
     list(label = 'AAM+AST+PSI', dirname = 'model9-psi+aam+ast/cost_duration')
@@ -56,7 +57,7 @@ plot_by_cost <- function(frac_res_min, frac_res_max, frac_res_increase_threshold
 
     save_all_formats(
         sprintf('model_comp_bycost-%.2f-%.2f-%.1f', frac_res_min, frac_res_max, frac_res_increase_threshold),
-        p, 4, 2
+        p, 6, 2
     )
 }
 

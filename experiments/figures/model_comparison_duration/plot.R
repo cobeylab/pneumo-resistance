@@ -18,10 +18,10 @@ library(dplyr)
 source('../shared.R')
 
 MODELS <- list(
-list(label = '5 d', dirname = 'model13-treat=5-aam+ast+ct-eih+psi/cost_duration'),
-list(label = '10 d', dirname = 'model7-psi+aam+ast+ct+eih/cost_duration'),
-list(label = '20 d', dirname = 'model14-treat=20-aam+ast+ct-eih+psi/cost_duration')
-
+    list(label = '2.5 d', dirname = 'model17-treat=2.5-aam+ast+ct-eih+psi/cost_duration'),
+    list(label = '5 d', dirname = 'model13-treat=5-aam+ast+ct-eih+psi/cost_duration'),
+    list(label = '10 d', dirname = 'model7-psi+aam+ast+ct+eih/cost_duration'),
+    list(label = '20 d', dirname = 'model14-treat=20-aam+ast+ct-eih+psi/cost_duration')
 )
 
 main <- function()

@@ -1,5 +1,5 @@
-Summary
-=======
+## Summary
+
 This model explicitly represents the host-level colonization dynamics of multiple strains of pneumococcus.
 There are `n_serotypes` different serotypes; for each serotype, there are two strains: antibiotic-sensitive (resistance class 0) and antibiotic-resistant (resistance class 1).
 Hosts receive antibiotic treatments through their lifetime, sampled based on an empirical distribution of treatment rates at different ages.
@@ -7,11 +7,45 @@ Transmission and clearance dynamics depend on the age, current treatment status,
 
 The simulation is structured using an event queue and proceeds by repeatedly removing the next event from the queue and executing it.
 
-For the sake of simplicity, the model is implemented in Python. Parameters and model state listed here match usage in the code. 
+For the sake of simplicity, the model is implemented in Python.
+For speed, it was run using PyPy.
+(In retrospect, it should have been implemented in simple C++, because PyPy is still quite a bit slower and less memory-efficient.)
+Parameters and model state listed here should match usage in the code. 
 
 
-Running the Model
-=================
+## PyPy Setup
+
+The simulation code was built and run using PyPy 4.0.1 and the corresponding NumPy-via-PyPy release.
+Here's how to install, briefly, on Unix-y systems:
+
+* [Download PyPy 4.0.1 here](https://bitbucket.org/pypy/pypy/downloads/).
+* Ensure that `pypy` is in your `$PATH` environment variable, so that `which pypy` points to the right place.
+* [Download and unpack NumPy-via-PyPy for PyPy 4.0.1](https://bitbucket.org/pypy/numpy/downloads/?tab=tags)
+
+Then set up NumPy in PyPy via:
+
+```
+cd pypy-numpy-0208abed8c7e
+pypy setup.py install
+```
+
+Newer versions may work, as may the now-recommended C-extension method for using NumPy in PyPy, but they have not been tested.
+
+If you don't want to set up PyPy, you can run `pyresistance.py` using Anaconda Python, e.g., via
+
+```sh
+python <path-to-repo>/src/pyresistance.py parameters.json
+```
+
+but simulations will take significantly longer.
+
+## Anaconda Setup
+
+To run the sweep-generating, database-gathering and summary scripts, you'll need the [Anaconda Python 2.7 distribution](https://www.continuum.io/downloads).
+Set your `$PATH` so that `which python` points to Anaconda's copy of `python`.
+
+## Running the Model
+
 For flexibility, model parameters can be loaded from a static parameters file or via standard input in JSON format; from a Python module defining the parameters as variables, where they can be generated programmatically; or by writing a separate main script that initializes a `pyresistance.Model` object programmatically.
 
 The `example` directory includes a Python module `parameters.py` defining parameters as variables, as well as a directory `burnin_replicate` showing how to perform many jobs on a cluster, including burn-in jobs that serve as the starting point for replicates.
@@ -19,20 +53,26 @@ For more information about running replicates, see `README.md` in `example/burni
 
 To run from a Python module `parameters.py`, simply do this:
 ```{sh}
-[...]/pyresistance.py parameters.py
+<path-to-repo>/src/pyresistance.py parameters.py
 ```
 
 and similarly, from a static `parameters.json` file:
 ```{sh}
-[...]/pyresistance.py parameters.json
+<path-to-repo>/src/pyresistance.py parameters.json
 ```
 
-Parameters
-==========
+If you didn't install PyPy, do
+
+```sh
+python <path-to-repo>/src/pyresistance.py parameters.json
+```
+
+## Parameters
+
 See the comments in `example/parameters.py` for a description of all model parameters.
 
-Model State
-===========
+## Model State
+
 Model state is determined by the following components:
 * `hosts`: a list of Host objects (see Host State).
 * `event_queue`: a priority heap of future events in the simulation, represented as function objects that can be called to execute a change in simulation state, whose priority is the simulation time of the event. Events at the same time are additionally prioritized by the order in which they are added to the queue.
@@ -44,8 +84,8 @@ For efficiency, two arrays summarizing host state are also kept up to date throu
 The time `t` is implied by the time assigned to the current event being executed. The meaning of one unit of time is determined by the values of simulation parameters; the age of hosts is determined by `t_year`, so if `t_year` is 365, and simulation parameters are set accordingly, one unit of time can be thought of as one day.
 
 
-Host State
-==========
+## Host State
+
 Hosts are characterized by the following attributes:
 * `birth_time, death_time`: the time of the host's birth and death.
 * `age`: the age of the host, in years, kept equal to `floor((t - birth_time)/t_year)`.
@@ -55,8 +95,8 @@ Hosts are characterized by the following attributes:
 * `in_treatment`: `True` if the host is currently receiving an antibiotic treatment; `False` otherwise. (This attribute is implied by `treatment_times`.)
 
 
-Model Initialization
-====================
+## Model Initialization
+
 1. Add `n_hosts` Host objects to the `hosts` list, each with a randomly drawn lifetime. Set the birth time so that `-demographic_burnin_time` is uniformly randomly located within their lifetime. This is done to create a distribution of ages before demographic burnin. (See Host Lifetimes, Host Initialization, and Demographic Burnin.)
 2. Simulate birth and death until `t = 0` to reach an initial age distribution.
 3. Create initial colonizations in hosts. (See Initial Colonization.)
@@ -65,8 +105,8 @@ Model Initialization
     a. Set `t, event_function` equal to the next time and event function object on the event queue.
     b. Call `event_function`.
 
-Colonization Events
-===================
+## Colonization Events
+
 Colonization events are executed every `colonization_timestep`:
 ```{python}
 event colonization_event:
@@ -139,45 +179,45 @@ Host Initialization
 7. Add events corresponding to starting and stopping each treatment (see Treatment Events).
 
 
-Treatment Events
-================
+## Treatment Events
+
 When treatment is activated or deactivated for a host, `in_treatment` is set accordingly. Additionally, since treatment affects clearance rates, all clearance times are re-drawn when treatment status changes.
 
 
-Clearance Events
-================
+## Clearance Events
+
 When colonizations are cleared, the corresponding counts are simply reduced by one.
 
 
-Host Lifetimes
-==============
+## Host Lifetimes
+
 Host lifetimes are drawn from the empirical distribution given by `lifetime_distribution`. The probability that a host dies at age `i` is equal to `lifetime_distribution[i] / sum(lifetime_distribution)`. The actual death time is drawn uniformly randomly within the year given by the chosen age.
 
 
-Initial Colonization
-====================
+## Initial Colonization
+
 Each host has an (approximately) `init_p_host_colonized` probability of being colonized by any strain, with each serotype being equally likely, and the probability of a resistant strain given by `init_p_resistant`. These are approximate because the number of colonizations is set to be at least 1 for each serotype/resistance class.
 
 
-Treatment Schedules
-===================
+## Treatment Schedules
+
 The number of treatments at each age is drawn according to `mean_n_treatments_per_age`. Treatment times are drawn uniformly randomly in each year, conditional on there being at least a `min_time_between_treatments` delay between treatments.
 
 
-Outputs
-=======
+## Outputs
+
 The output database contains three tables, each of which begins with a `job_id` column used to indicate, e.g., different runs in a parameter sweep that are writing to the same database file; and a `t` column containing the simulation time.
 
 
-`counts_by_age_treatment`
--------------------------
+### `counts_by_ageclass_treatment`
+
 This table contains the number of colonized hosts, the number of total colonizations, and the number of hosts colonized simultaneously by sensitive and resistant strains, for hosts in each particular age class/treatment status.
 
 Columns:
 ```
 job_id
 t
-age
+ageclass
 in_treatment
 n_hosts
 n_colonized
@@ -185,15 +225,15 @@ n_colonizations
 n_colonized_by_sensitive_and_resistant
 ```
 
-`counts_by_age_treatment_strain`
---------------------------------
+### `counts_by_ageclass_treatment_strain`
+
 This table contains the number of hosts, and the number of total colonizations, for hosts in each particular age class/treatment status, for each strain.
 
 Columns:
 ```
 job_id
 t
-age
+ageclass
 in_treatment
 serotype_id
 resistant
@@ -201,15 +241,15 @@ n_colonized
 n_colonizations
 ```
 
-`counts_by_age_treatment_n_colonizations`
------------------------------------------
+### `counts_by_age_treatment_n_colonizations`
+
 This table contains the number of hosts hosts by number of colonizations, in each age/treatment status. At each output time, there will be one row for each age/treatment status/number of colonizations, up to the maximum number of colonizations across hosts at that time.
 
 Columns:
 ```
 job_id
 t
-age
+ageclass
 in_treatment
 n_colonizations
 n_hosts

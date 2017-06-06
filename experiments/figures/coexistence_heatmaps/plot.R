@@ -21,11 +21,14 @@ MODELS <- list(
     list(label = 'Null', dirname = 'model0-null/cost_duration'),
     list(label = 'AAM', dirname = 'model1-aam/cost_duration'),
     list(label = 'AST', dirname = 'model2-ast/cost_duration'),
+    list(label = 'AAM+AST', dirname = 'model15-aam+ast/cost_duration'),
+    list(label = 'PSI', dirname = 'model5-psi/cost_duration'),
     list(label = 'AAM+AST+PSI', dirname='model9-psi+aam+ast/cost_duration'),
     list(label = 'CT-EIC', dirname = 'model4-ct/cost_duration'),
     list(label = 'CT-EIH', dirname= 'model16-ct-eih/cost_duration'),
     list(label = 'CT-EIC+AAM+AST+PSI', dirname = 'model6-aam+ast+ct+psi/cost_duration'),
     list(label = 'CT-EIH+AAM+AST+PSI',dirname = 'model7-psi+aam+ast+ct+eih/cost_duration'),
+#    list(label = '2.5 d (CT-EIH+AAM+AST+PSI)', dirname='model17-treat=2.5-aam+ast+ct-eih+psi/cost_duration'),
     list(label = '5 d (CT-EIH+AAM+AST+PSI)', dirname='model13-treat=5-aam+ast+ct-eih+psi/cost_duration'),
 #    list(label = '10 d', dirname='model7-psi+aam+ast+ct+eih/cost_duration'),
     list(label = '20 d (CT-EIH+AAM+AST+PSI)', dirname='model14-treat=20-aam+ast+ct-eih+psi/cost_duration'),
@@ -40,6 +43,7 @@ MODELS <- list(
 main <- function()
 {
     plot_by_cost(0.02, 0.6, 1.1)
+    plot_by_cost(0.02, 0.98, 1.1)
 }
 
 plot_by_cost <- function(frac_res_min, frac_res_max, frac_res_increase_threshold)

@@ -8,24 +8,22 @@ import numpy
 import json
 
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
-RUN_EXEC_PATH = os.path.join(SCRIPT_DIR, 'run_job.sh')
-JOBS_DIR = os.path.join(SCRIPT_DIR, 'jobs')
-N_REPLICATES = 10
 
-seed_rng = random.SystemRandom()
+N_REPLICATES = 20
 
-if os.path.exists(JOBS_DIR):
-    sys.stderr.write('{} already exists; aborting\n'.format(JOBS_DIR))
-    sys.exit(1)
-
-runmany_info_template = OrderedDict([
-    ('executable', RUN_EXEC_PATH),
-    ('environment', {'PYRESISTANCE' : os.path.join(SCRIPT_DIR, 'pyresistance')}),
-    ('minutes', 600),
-    ('megabytes', 6000)
-])
+def main():
+    params = get_constant_parameters()
+    
+    # Use cost = xi (cost in duration)
+    generate_sweep_jobs(params, 'jobs', 'xi', [0.90, 0.92, 0.94, 0.96, 0.98, 1.00])
+    
+    # Alternatively, use cost = ratio_foi_resistant_to_sensitive (cost in duration)
+    # generate_sweep_jobs(params, 'jobs', 'ratio_foi_resistant_to_sensitive', [0.90, 0.92, 0.94, 0.96, 0.98, 1.00])
 
 def get_constant_parameters():
+    transmission_model = 'independent'
+    transmission_scaling = 'by_colonization'
+
     n_hosts = 100000
     n_serotypes = 25
     n_ages = 111
@@ -44,23 +42,22 @@ def get_constant_parameters():
     epsilon = 0.25
     sigma = 0.3
     mu_max = 0.25
-    gamma = 'empirical_usa'
+    gamma = 'empirical'
     gamma_treated_sensitive = 4.0
     gamma_treated_ratio_resistant_to_sensitive = 5.0
     ratio_foi_resistant_to_sensitive = 1.0
-    treatment_multiplier = 0.0
-    immigration_rate = 0.000001
-    
+    treatment_multiplier = 1.0
+
+    immigration_rate = 0.000001 / 8.0
     immigration_resistance_model = 'constant'
-    p_immigration_resistant_bounds = [0.01, 0.99]
-    p_immigration_resistant = 0.1
+    p_immigration_resistant = 0.01
 
     p_init_immune = 0.5
     init_prob_host_colonized = (0.02 * numpy.ones(n_serotypes, dtype=float)).tolist()
     init_prob_resistant = 0.5
 
     lifetime_distribution = 'empirical_usa'
-    mean_n_treatments_per_age = 'empirical_usa'
+    mean_n_treatments_per_age = [0.35405] * n_ages
     min_time_between_treatments = 1.5
     treatment_duration_mean = 10.0
     treatment_duration_sd = 3.0
@@ -78,9 +75,10 @@ def get_constant_parameters():
         # implied class for age >= 20
     ]
 
+    # Only produce output for age clases
     enable_output_by_age = False
 
-    random_seed = None
+    # Internal operation
     use_calendar_queue = True
     queue_min_bucket_width = 5e-4
     colonization_event_timestep = 1.0
@@ -88,38 +86,47 @@ def get_constant_parameters():
 
     return locals() # Magically returns a dictionary of all the variables defined in this function
 
+def generate_sweep_jobs(model_params, jobs_dirname, cost_param_name, cost_values):
+    seed_rng = random.SystemRandom()
+    for treatment_multiplier_base in [0.0, 0.5, 1.0, 1.5]:
+        treatment_multiplier = treatment_multiplier_base * 10.0 / model_params['treatment_duration_mean']
+        for cost_value in cost_values:
+            for gamma_treated_ratio_resistant_to_sensitive in [1.0, 2.0, 4.0, 5.0]:
+                for replicate_id in range(0, N_REPLICATES):
+                    job_dir = os.path.join(
+                        jobs_dirname,
+                        'treat={:.1f}-cost={:.2f}-ratio={:.1f}'.format(
+                            treatment_multiplier, cost_value, gamma_treated_ratio_resistant_to_sensitive
+                        ),
+                        '{:02d}'.format(replicate_id)
+                    )
+                    
+                    if os.path.exists(job_dir):
+                        sys.stderr.write('{} already exists\n'.format(job_dir))
+                    else:
+                        sys.stderr.write('{}\n'.format(job_dir))
+                        os.makedirs(job_dir)
+                
+                        random_seed = seed_rng.randint(1, 2**31-1)
+                        
+                        parameters = OrderedDict(model_params)
+                        job_info = OrderedDict([
+                            ('cost_param_name', cost_param_name),
+                            ('cost', cost_value),
+                            (cost_param_name, cost_value),
+                            ('treatment_multiplier', treatment_multiplier),
+                            ('gamma_treated_ratio_resistant_to_sensitive', gamma_treated_ratio_resistant_to_sensitive),
+                            ('random_seed', random_seed)
+                        ])
+                        parameters.update(job_info)
+                        parameters['job_info'] = job_info
+                        
+                        dump_json(parameters, os.path.join(job_dir, 'parameters.json'))
+
 def dump_json(obj, filename):
     with open(filename, 'w') as f:
         json.dump(obj, f, indent=2)
         f.write('\n')
 
-for xi in [0.90, 0.92, 0.94, 0.96, 0.98, 1.00]:
-    for treatment_multiplier in [0.0, 0.5, 1.0, 1.5]:
-        for gamma_treated_ratio_resistant_to_sensitive in [4.0]:
-            for replicate_id in range(0, N_REPLICATES):
-                job_dir = os.path.join(
-                    JOBS_DIR,
-                    'xi={:.2f}-treat={:.1f}-ratio={:.1f}'.format(
-                        xi, treatment_multiplier, gamma_treated_ratio_resistant_to_sensitive
-                    ),
-                    '{:02d}'.format(replicate_id)
-                )
-                sys.stderr.write('{}\n'.format(job_dir))
-                os.makedirs(job_dir)
-                
-                random_seed = seed_rng.randint(1, 2**31-1)
-                
-                runmany_info = OrderedDict(runmany_info_template)
-                runmany_info['job_info'] = OrderedDict([
-                    ('xi', xi),
-                    ('treatment_multiplier', treatment_multiplier),
-                    ('gamma_treated_ratio_resistant_to_sensitive', gamma_treated_ratio_resistant_to_sensitive),
-                    ('random_seed', random_seed)
-                ])
-                
-                parameters = get_constant_parameters()
-                parameters.update(runmany_info['job_info'])
-                parameters['job_info'] = runmany_info['job_info']
-                
-                dump_json(parameters, os.path.join(job_dir, 'parameters.json'))
-                dump_json(runmany_info, os.path.join(job_dir, 'runmany_info.json'))
+if __name__ == '__main__':
+    main()

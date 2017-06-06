@@ -19,13 +19,26 @@ source('../shared.R')
 
 main <- function()
 {
+    for(model_name in c(
+        'model7-psi+aam+ast+ct+eih',
+        'model9-psi+aam+ast'
+    )) {
+        plot_model(model_name, 0)
+        plot_model(model_name, 1)
+        plot_model(model_name, 2)
+    }
+}
+
+plot_model <- function(model_name, ageclass)
+{
+    db_filename <- file.path('../..', model_name, 'cost_duration', 'sweep_db-summaries.sqlite')
     df <- load_prepared_query(
-        '../../model7-psi+aam+ast+ct+eih/cost_duration/sweep_db-summaries.sqlite',
-        'SELECT * FROM summary_by_serotype
+        db_filename,
+        'SELECT * FROM summary_by_serotype_ageclass
             WHERE gamma_treated_ratio_resistant_to_sensitive = ?
-	    AND treatment_multiplier = 1.0
+	    AND treatment_multiplier = 1.0 AND ageclass = ?
         ;',
-        data.frame(gamma_treated_ratio_resistant_to_sensitive = 4)
+        data.frame(gamma_treated_ratio_resistant_to_sensitive = 4, ageclass = ageclass)
     )
     df$cost_pct <- factor(
         sapply(
@@ -36,42 +49,42 @@ main <- function()
     )
     
     # POINTS
-    p <- ggplot() +
-        geom_point(
-            data = df,
-            aes(factor(serotype_id + 1), frac_resistant, color = cost_pct),
-            size = 0.5
-        ) +
-        labs(x = 'Serotype rank', y = 'Fraction resistant', color = 'Cost') +
-        theme_minimal()
-    save_all_formats('res_by_rank_for_cost-points', p, width = 6, height = 4)
+    # p <- ggplot() +
+    #     geom_point(
+    #         data = df,
+    #         aes(factor(serotype_id + 1), frac_resistant, color = cost_pct),
+    #         size = 0.5
+    #     ) +
+    #     labs(x = 'Serotype rank', y = 'Fraction resistant', color = 'Cost') +
+    #     theme_minimal()
+    # save_all_formats('res_by_rank_for_cost-points', p, width = 6, height = 4)
     
     # BOXPLOT
-    p <- ggplot() +
-        geom_boxplot(
-            data = df,
-            aes(factor(serotype_id + 1), frac_resistant, color = cost_pct),
-            outlier.size = 0.5
-        ) +
-        labs(x = 'Serotype rank', y = 'Fraction resistant', color = 'Cost') +
-        theme_minimal()
-    save_all_formats('res_by_rank_for_cost-boxplot', p, width = 12, height = 4)
+    # p <- ggplot() +
+    #     geom_boxplot(
+    #         data = df,
+    #         aes(factor(serotype_id + 1), frac_resistant, color = cost_pct),
+    #         outlier.size = 0.5
+    #     ) +
+    #     labs(x = 'Serotype rank', y = 'Fraction resistant', color = 'Cost') +
+    #     theme_minimal()
+    # save_all_formats('res_by_rank_for_cost-boxplot', p, width = 12, height = 4)
     
     # BOXPLOT + POINTS
-    p <- ggplot() +
-        geom_boxplot(
-            data = df,
-            aes(factor(serotype_id + 1), frac_resistant, color = cost_pct),
-            outlier.alpha = 0
-        ) +
-        geom_point(
-            data = df,
-            aes(factor(serotype_id + 1), frac_resistant, color = cost_pct),
-            position = position_jitterdodge(), size = 0.5
-        ) +
-        labs(x = 'Serotype rank', y = 'Fraction resistant', color = 'Cost') +
-        theme_minimal()
-    save_all_formats('res_by_rank_for_cost-boxplot+points', p, width = 12, height = 4)
+    # p <- ggplot() +
+    #     geom_boxplot(
+    #         data = df,
+    #         aes(factor(serotype_id + 1), frac_resistant, color = cost_pct),
+    #         outlier.alpha = 0
+    #     ) +
+    #     geom_point(
+    #         data = df,
+    #         aes(factor(serotype_id + 1), frac_resistant, color = cost_pct),
+    #         position = position_jitterdodge(), size = 0.5
+    #     ) +
+    #     labs(x = 'Serotype rank', y = 'Fraction resistant', color = 'Cost') +
+    #     theme_minimal()
+    # save_all_formats('res_by_rank_for_cost-boxplot+points', p, width = 12, height = 4)
     
     # BOXPLOT + POINTS BY COST
     p <- ggplot() +
@@ -85,10 +98,13 @@ main <- function()
             aes(factor(serotype_id + 1), frac_resistant, color = cost_pct),
             position = position_jitterdodge(), size = 0.5
         ) +
-        facet_grid(cost_pct ~ .)
+        facet_grid(cost_pct ~ .) +
         labs(x = 'Serotype rank', y = 'Fraction resistant', color = 'Cost') +
         theme_minimal()
-        save_all_formats('res_by_rank_for_cost-boxplot+points-facet', p, width = 10, height = 16)
+    save_all_formats(
+        sprintf('res_by_rank-%s-%d', model_name, ageclass),
+        p, width = 6, height = 8
+    )
 }
 
 main()

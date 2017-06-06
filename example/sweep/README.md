@@ -1,63 +1,102 @@
-## Setup
+# Setting up a parameter sweep
+
+## PyPy Setup
+
+The simulation code was built and run using PyPy 4.0.1 and the corresponding NumPy-via-PyPy release.
+Here's how to install, briefly, on Unix-y systems:
+
+* [Download PyPy 4.0.1 here](https://bitbucket.org/pypy/pypy/downloads/).
+* Ensure that `pypy` is in your `$PATH` environment variable, so that `which pypy` points to the right place.
+* [Download and unpack NumPy-via-PyPy for PyPy 4.0.1](https://bitbucket.org/pypy/numpy/downloads/?tab=tags)
+
+Then set up NumPy in PyPy via:
+
+```
+cd pypy-numpy-0208abed8c7e
+pypy setup.py install
+```
+
+Newer versions may work, as may the now-recommended C-extension method for using NumPy in PyPy, but they have not been tested.
+
+If you don't want to set up PyPy, you can run `pyresistance.py` using Anaconda Python, e.g., via
+
+```sh
+python <path-to-repo>/src/pyresistance.py parameters.json
+```
+
+but simulations will take significantly longer.
+
+## Anaconda Setup
+
+To run the sweep-generating, database-gathering and summary scripts, you'll need the [Anaconda Python 2.7 distribution](https://www.continuum.io/downloads).
+Set your `$PATH` so that `which python` points to Anaconda's copy of `python`.
+
+## Setting up and running a sweep
 
 First, get the code and move it into an experiment directory:
 
 ```{sh}
 mkdir 2015-11-09-sweep
 cd 2015-11-09-sweep
-git clone git@bitbucket.org:cobeylab/pyresistance.git
-cp example/sweep/* .
+git clone https://github.com/cobeylab/pneumo-resistance.git
+cp pneumo-resistance/example/sweep/* .
 ```
 
-## Generate job directories
+Then, modify the parameter values/sweep in `generate_sweep_jobs.py` to match the experiment.
 
-First, modify the parameter values/sweep in `generate_sweep_jobs.py` to match the experiment. If necessary, also modify time/memory requirements in the `runmany_info_template`.
+Finally, run the script to generate a bunch of directories for runs:
 
-Then, run the script to generate a bunch of directories for runs:
-
-```{sh}
+```sh
 ./generate_sweep_jobs.py
 ```
 
 which will generate a directory hierarchy, e.g.,
 
-```
+```sh
 jobs/
-    xi=0.90-treat=0.0-cost=4.0/
+    treat=0.0-cost=0.90-ratio=1.0/
         00/
             parameters.json
-            runmany_info.json
         01/
-            ...
+            parameters.json
         ...
 ```
 
-You might need to make this file executable (`chmod +x generate_sweep_jobs.py`).
+These jobs can be run individually, e.g.:
 
-Then, try a dry SLURM run via `runmany`:
-
-```{sh}
-runmany slurm pneu jobs chunks --chunks 48 --dry
+```sh
+cd jobs/treat=0.0-cost=0.90-ratio=1.0/00
+<path-to-repo>/src/pyresistance.py parameters.json
 ```
 
-and then do the real thing:
+or, if you didn't install PyPy,
 
-```{sh}
-rm -r chunks
-runmany slurm pneu jobs chunks --chunks 48
+```sh
+cd jobs/treat=0.0-cost=0.90-ratio=1.0/00
+python <path-to-repo>/src/pyresistance.py parameters.json
 ```
 
-## Gather database
+To actually run a sweep, you'll want to submit many jobs to your cluster system via a script that iterates through all the directories or submits an array job.
 
-Run `gather` (in `runmany`) to combine all the jobs into a single database:
 
-```{sh}
-gather jobs sweep_db.sqlite
+## Gather databases and generate summaries
+
+After all jobs have run, run `gather.py` to combine all the jobs into a single database:
+
+```sh
+./gather.py jobs sweep_db.sqlite
 ```
 
+(This will produce a very large file and take a while.)
 
-## Plot sweep
+You can run `summarize_sweep.py` to add summary tables to the database:
 
-```{sh}
-./plot_sweep.py sweep_db.sqlite
+```sh
+./summarize_sweep.py sweep_db.sqlite
+```
+
+You can then extract a small-ish SQLite file, `sweep_db-summaries.sqlite`, containing only summary data:
+
+```sh
+./extract_summaries.py sweep_db.sqlite
 ```

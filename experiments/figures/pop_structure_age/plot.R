@@ -69,15 +69,15 @@ load_data <- function(model_list)
     df$model <- factor(df$model, levels = model_levels)
     df$ageclass_name <- factor(sapply(df$ageclass, function(ac) {
         if(ac == 0) {
-            return('0-5')
+            return('< 5')
         }
         else if(ac == 2) {
-            return('>20')
+            return('>= 20')
         }
         else {
             stop('invalid ageclass')
         }
-    }), levels = c('0-5', '>20'))
+    }), levels = c('< 5', '>= 20'))
     df
 }
 
